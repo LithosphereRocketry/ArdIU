@@ -1,3 +1,0 @@
-- install Adafruit BMP280 library via Library Manager, including dependencies
-- install MPU6050 library from Jeff Rowberg's i2cdevlib
-- install SDFat
