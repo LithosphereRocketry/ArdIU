@@ -1,0 +1,4 @@
+Required Libraries:
+- JRowberg's I2CDevLib and MPU6050 libraries
+- Adafruit's BMP280 libary and all prerequisites
+- SdFat
