@@ -91,7 +91,6 @@ THE SOFTWARE.
 //#include "math.h"
 
 // datalogging things
-//#include "EEPROM.h"
 #include "SPI.h"
 #include "SdFat.h"
 
@@ -102,6 +101,8 @@ THE SOFTWARE.
 // IMU things
 #include "I2Cdev.h"
 #include "helper_3dmath.h"
+#include "EEPROM.h"
+
 // MotionApps 2.0 DMP implementation, built using the MPU-6050EVB evaluation board
 #define MPU6050_INCLUDE_DMP_MOTIONAPPS20
 #include "MPU6050.h"

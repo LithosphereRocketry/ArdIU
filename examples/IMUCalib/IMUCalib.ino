@@ -1,3 +1,6 @@
+// ArdIU adaptation of Luis Ródenas' MPU6050 calibration sketch
+// =================================================
+
 // Arduino sketch that returns calibration offsets for MPU6050 //   Version 1.1  (31th January 2014)
 // Done by Luis Ródenas <luisrodenaslorda@gmail.com>
 // Based on the I2Cdev library and previous work by Jeff Rowberg <jeff@rowberg.net>
@@ -35,6 +38,8 @@
 #include "I2Cdev.h"
 #include "MPU6050.h"
 #include "Wire.h"
+#include "EEPROM.h"
+
 
 ///////////////////////////////////   CONFIGURATION   /////////////////////////////
 //Change this 3 variables if you want to fine tune the skecth to your needs.
@@ -76,9 +81,9 @@ void setup() {
   while (Serial.available() && Serial.read()); // empty buffer again
 
   // start message
-  Serial.println("\nMPU6050 Calibration Sketch");
+  Serial.println("\nArdIU Calibration Sketch");
   delay(2000);
-  Serial.println("\nYour MPU6050 should be placed in horizontal position, with package letters facing up. \nDon't touch it until you see a finish message.\n");
+  Serial.println("\nYour ArdIU should be placed on a flat surface, with the terminal side of the board facing up. \nDon't touch it until you see a finish message.\n");
   delay(3000);
   // verify connection
   Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
@@ -110,6 +115,13 @@ void loop() {
 
   if (state==2) {
     meansensors();
+    Serial.println("Writing EEPROM...");
+    EEPROM.put(0, ax_offset);
+    EEPROM.put(2, ay_offset);
+    EEPROM.put(4, az_offset);
+    EEPROM.put(6, gx_offset);
+    EEPROM.put(8, gy_offset);
+    EEPROM.put(10, gz_offset);
     Serial.println("\nFINISHED!");
     Serial.print("\nSensor readings with offsets:\t");
     Serial.print(mean_ax); 
@@ -134,10 +146,10 @@ void loop() {
     Serial.print("\t");
     Serial.print(gy_offset); 
     Serial.print("\t");
-    Serial.println(gz_offset); 
-    Serial.println("\nData is printed as: acelX acelY acelZ giroX giroY giroZ");
+    Serial.println(gz_offset);
+    Serial.println("\nData is printed as: acelX acelY acelZ gyroX gyroY gyroZ");
     Serial.println("Check that your sensor readings are close to 0 0 16384 0 0 0");
-    Serial.println("If calibration was succesful write down your offsets so you can set them in your projects using something similar to mpu.setXAccelOffset(youroffset)");
+    Serial.println("Calibration values have been stored to EEPROM. If calibration was succesful write down your offsets so you can set them in your projects using something similar to mpu.setXAccelOffset(youroffset)");
     while (1);
   }
 }
@@ -213,4 +225,3 @@ void calibration(){
     if (ready==6) break;
   }
 }
-
