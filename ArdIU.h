@@ -49,31 +49,6 @@ THE SOFTWARE.
 #ifndef ARDIU_H
 #define ARDIU_H
 
-// MPU6050 offsets, overwrite
-#ifndef IMU_GYRO_OFFSET_X
-#define IMU_GYRO_OFFSET_X 220
-#endif
-
-#ifndef IMU_GYRO_OFFSET_Y
-#define IMU_GYRO_OFFSET_Y 76
-#endif
-
-#ifndef IMU_GYRO_OFFSET_Z
-#define IMU_GYRO_OFFSET_Z -85
-#endif
-
-#ifndef IMU_ACCEL_OFFSET_X
-#define IMU_ACCEL_OFFSET_X -1688
-#endif
-
-#ifndef IMU_ACCEL_OFFSET_Y
-#define IMU_ACCEL_OFFSET_Y -382
-#endif
-
-#ifndef IMU_ACCEL_OFFSET_Z
-#define IMU_ACCEL_OFFSET_Z 1788
-#endif
-
 #ifndef CHANNELS
 #define CHANNELS 3
 #endif

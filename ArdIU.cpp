@@ -140,7 +140,7 @@ float ArdIU::getAltSmoothed(int e_life) {
 	
 }
 float ArdIU::getVoltage(int analog_in) {
-	return analog_in*5.0/vinScale/1024.0; // reading -> voltage @ pin -> voltage @ input
+	return analog_in*3.3/vinScale/1024.0; // reading -> voltage @ pin -> voltage @ input
 }
 float ArdIU::getVin() {
 	return getVoltage(analogRead(VIN));
@@ -368,5 +368,5 @@ void ArdIU::getLiftoff(float threshhold, int time) {
 float ArdIU::getTilt() {
 	BetterVectorFloat v = BetterVectorFloat(vertical.x, vertical.y, vertical.z);
 	v.rotate(&imuQ);
-	return acos((v.x*vertical.x + v.y*vertical.y + v.z*vertical.z));
+	return acos(v.dotProduct(vertical));
 }
