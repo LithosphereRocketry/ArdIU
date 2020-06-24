@@ -1,0 +1,6 @@
+ 0: AccX offset
+ 2: AccY offset
+ 4: AccZ offset
+ 6: GyrX offset
+ 8: GyrY offset
+10: GyrZ offset

@@ -222,12 +222,20 @@ void ArdIU::initIMU() {
 	
 	imuDevStatus = imu.dmpInitialize();
 	
-	imu.setXGyroOffset(IMU_GYRO_OFFSET_X);
-	imu.setYGyroOffset(IMU_GYRO_OFFSET_Y);
-	imu.setZGyroOffset(IMU_GYRO_OFFSET_Z);
-	imu.setXAccelOffset(IMU_ACCEL_OFFSET_X);
-	imu.setYAccelOffset(IMU_ACCEL_OFFSET_Y);
-	imu.setZAccelOffset(IMU_ACCEL_OFFSET_Z);
+	int ax, ay, az, gx, gy, gz;
+	EEPROM.get(0, ax);
+	EEPROM.get(2, ay);
+	EEPROM.get(4, az);
+	EEPROM.get(6, gx);
+	EEPROM.get(8, gy);
+	EEPROM.get(10, gz);
+	
+	imu.setXGyroOffset(gx);
+	imu.setYGyroOffset(gy);
+	imu.setZGyroOffset(gz);
+	imu.setXAccelOffset(ax);
+	imu.setYAccelOffset(ay);
+	imu.setZAccelOffset(az);
 	
 	if(imuDevStatus == 0 && isIMU) {
 		imu.setDMPEnabled(true);
