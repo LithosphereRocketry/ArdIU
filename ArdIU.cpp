@@ -51,7 +51,6 @@ volatile bool ArdIU::imuInterrupt;
 
 void ArdIU::dmpDataReady() { imuInterrupt = true; }
  
-// void doThing() {}
 void ArdIU::beepBoolean(bool input, int onTime, int offTime) {
 	tone(BUZZER, 1000+(input?1000:0), onTime);
 	delay(onTime+offTime);
@@ -153,7 +152,7 @@ boolean ArdIU::getCont(int channel) {
 #define MAX_FILES 100
 void ArdIU::initSD() {
 	isSD = SD.begin(CS_SD);
-    filename[0] = 0;  // strcpy(filename, "")
+        filename[0] = 0;  // strcpy(filename, "")
 	if(isSD) {
 		int i = 0;
 		while(i < MAX_FILES) {
@@ -219,23 +218,18 @@ void ArdIU::initIMU() {
 	pinMode(INTERRUPT, INPUT);
 	
 	isIMU = imu.testConnection();
-	
+
 	imuDevStatus = imu.dmpInitialize();
+
+        struct calibrationData { int ax, ay, az, gx, gy, gz; } calData;
+	EEPROM.get(0, calData);
 	
-	int ax, ay, az, gx, gy, gz;
-	EEPROM.get(0, ax);
-	EEPROM.get(2, ay);
-	EEPROM.get(4, az);
-	EEPROM.get(6, gx);
-	EEPROM.get(8, gy);
-	EEPROM.get(10, gz);
-	
-	imu.setXGyroOffset(gx);
-	imu.setYGyroOffset(gy);
-	imu.setZGyroOffset(gz);
-	imu.setXAccelOffset(ax);
-	imu.setYAccelOffset(ay);
-	imu.setZAccelOffset(az);
+	imu.setXGyroOffset(calData.gx);
+	imu.setYGyroOffset(calData.gy);
+	imu.setZGyroOffset(calData.gz);
+	imu.setXAccelOffset(calData.ax);
+	imu.setYAccelOffset(calData.ay);
+	imu.setZAccelOffset(calData.az);
 	
 	if(imuDevStatus == 0 && isIMU) {
 		imu.setDMPEnabled(true);
@@ -293,15 +287,10 @@ void ArdIU::logData(int baro_e_life) {
 	long int statemask = 0;
 	statemask += (byte) (getVin()*16); //0-7: battery voltage (0-16V * 16)
 	for(int i = 0; i < CHANNELS && i < 8; i++) {
-		statemask += getCont(i) << (i+8);
+		statemask |= getCont(i) << (i+8);
 	}
-	statemask += (long) isIMU << 16;
-	statemask += (long) isSD << 17;
-	statemask += (long) isBaro << 18;
-	
-	statemask += (long) isLiftoff() << 24;
-	statemask += (long) isApogee() << 26;
-	
+	statemask += ((long) isIMU << 16) | ((long) isSD << 17) | ((long) isBaro << 18) |
+                     ((long) isLiftoff() << 24) | ((long) isApogee() << 26);
 	store(statemask);
 	
 	if (isBaro) {
