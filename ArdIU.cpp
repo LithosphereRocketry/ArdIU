@@ -366,8 +366,7 @@ void ArdIU::getLiftoff(float threshhold, int time) {
 }
 
 float ArdIU::getTilt() {
-	VectorFloat v = getVF(accel);
-	v.normalize();
+	BetterVectorFloat v = BetterVectorFloat(vertical.x, vertical.y, vertical.z);
 	v.rotate(&imuQ);
 	return acos((v.x*vertical.x + v.y*vertical.y + v.z*vertical.z));
 }
