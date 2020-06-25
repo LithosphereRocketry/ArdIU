@@ -155,7 +155,7 @@ public:
 	static void getFlags();
 	// Checks inflight events- almost always necessary.
 
-	static void getApogee(int checkTime, int altDrop);
+	static void getApogee(int time, int altDrop);
 	// Checks whether apogee has occured. Input- verification time, typically around 500-1000 ms,
 	// verification drop, set to 0 for standard apogee detect or an altitude in meters to add a
 	// descent distance threshhold
@@ -278,5 +278,6 @@ private:
 	static byte imuDevStatus;
 	static byte bytesBuffered;
 	static byte apogeeFlag, burnoutFlag, liftoffFlag;
+        static void restartFlag(byte flag, void (*event)(), int time);
 };
 #endif

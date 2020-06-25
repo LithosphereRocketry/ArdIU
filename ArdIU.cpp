@@ -333,14 +333,6 @@ void ArdIU::fire(int channel, int time) {
 	}
 }
 
-void _atApogee() { ArdIU::tApogee = millis(); }
-void ArdIU::getApogee(int checkTime, int altDrop) {
-	if(altitude > altApogee - altDrop && !isApogee()) {
-		if(apogeeFlag != NO_FLAG) { flagBuffer[apogeeFlag].setNotLive(); }
-		apogeeFlag = setFlag(millis()+checkTime, _atApogee);
-	}
-}
-
 bool ArdIU::isLiftoff() { return tLiftoff > 0; }
 bool ArdIU::isBurnout() { return tBurnout > 0; }
 bool ArdIU::isApogee() { return tApogee > 0; }
@@ -351,17 +343,29 @@ void _atLiftoff() {
 	ArdIU::vertical = BetterVectorFloat(ArdIU::getAccelX(), ArdIU::getAccelY(), ArdIU::getAccelZ());
 	ArdIU::vertical.normalize();
 }
+void _atApogee() { ArdIU::tApogee = millis(); }
+
+void ArdIU::restartFlag(byte flag, void (*event)(), int time)
+{
+	if(flag != NO_FLAG) { flagBuffer[flag].setNotLive(); }
+	flag = setFlag(millis()+time, event);
+}
+
 void ArdIU::getLiftoff(float threshhold, int time) {
 	if(getAccel() < threshhold && !isLiftoff()) {
-		if(liftoffFlag != NO_FLAG) { flagBuffer[liftoffFlag].setNotLive(); }
-		liftoffFlag = setFlag(millis()+time, _atLiftoff);
+		restartFlag(liftoffFlag, _atLiftoff, time);
 	}
 }
 void ArdIU::getBurnout(int time) {
 	BetterVectorFloat accf = BetterVectorFloat(accel.x, accel.y, accel.z);
 	if(accf.dotProduct(vertical) > 0 && !isBurnout()) {
-		if(burnoutFlag != NO_FLAG) { flagBuffer[burnoutFlag].setNotLive(); }
-		burnoutFlag = setFlag(millis()+time, _atBurnout);
+		restartFlag(burnoutFlag, _atBurnout, time);
+	}
+}
+
+void ArdIU::getApogee(int time, int altDrop) {
+	if(altitude > altApogee - altDrop && !isApogee()) {
+                restartFlag(apogeeFlag, _atApogee, time);
 	}
 }
 
