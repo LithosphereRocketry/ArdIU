@@ -163,6 +163,9 @@ public:
 	static void getLiftoff(float threshhold, int time);
 	// Checks whether liftoff has occured based on accel. Input- trigger acceleration, verification time.
 	
+	static void getBurnout(int time);
+	// Checks whether burnout has occured based on direction of acceleration. Input- verification time.
+	
 	static bool channelFired[CHANNELS];
 	// Array storing whether each channel has fired. Channels are numbered 0-n (0-2 on a standard ArdIU).
 	
@@ -172,6 +175,7 @@ public:
 	
 	static bool isApogee(); // Returns whether the altimeter has detected apogee.
 	static bool isLiftoff(); // Returns whether the altimeter has detected liftoff.
+	static bool isBurnout(); // Returns whether the altimeter has detected motor burnout.
 	
 	static volatile bool imuInterrupt; // IMU interrupt status flag
 	
@@ -273,6 +277,6 @@ private:
 	static unsigned int imuPacketSize;
 	static byte imuDevStatus;
 	static byte bytesBuffered;
-	static byte apogeeFlag, liftoffFlag;
+	static byte apogeeFlag, burnoutFlag, liftoffFlag;
 };
 #endif

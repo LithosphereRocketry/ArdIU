@@ -27,6 +27,7 @@ bool ArdIU::channelFired[CHANNELS];
 float ArdIU::groundAlt = 0.0;
 long int ArdIU::tLiftoff = 0;
 long int ArdIU::tApogee = 0;
+long int ArdIU::tBurnout = 0;
 long int ArdIU::lastBaro = 0;
 float ArdIU::smooth1 = 0.0;
 float ArdIU::smooth2 = 0.0;
@@ -34,6 +35,7 @@ float ArdIU::smooth3 = 0.0;
 float ArdIU::altitude = 0.0;
 float ArdIU::altApogee = 0.0;
 byte ArdIU::apogeeFlag = NO_FLAG;
+byte ArdIU::burnoutFlag = NO_FLAG;
 byte ArdIU::liftoffFlag = NO_FLAG;
 byte ArdIU::buffer[BUF_SIZE];
 // File ArdIU::flightLog;
@@ -290,7 +292,7 @@ void ArdIU::logData(int baro_e_life) {
 		statemask |= getCont(i) << (i+8);
 	}
 	statemask += ((long) isIMU << 16) | ((long) isSD << 17) | ((long) isBaro << 18) |
-                     ((long) isLiftoff() << 24) | ((long) isApogee() << 26);
+                     ((long) isLiftoff() << 24) | ((long) isBurnout() << 25) | ((long) isApogee() << 26);
 	store(statemask);
 	
 	if (isBaro) {
@@ -340,8 +342,10 @@ void ArdIU::getApogee(int checkTime, int altDrop) {
 }
 
 bool ArdIU::isLiftoff() { return tLiftoff > 0; }
+bool ArdIU::isBurnout() { return tBurnout > 0; }
 bool ArdIU::isApogee() { return tApogee > 0; }
 
+void _atBurnout() { ArdIU::tBurnout = millis(); }
 void _atLiftoff() {
 	ArdIU::tLiftoff = millis();
 	ArdIU::vertical = BetterVectorFloat(ArdIU::getAccelX(), ArdIU::getAccelY(), ArdIU::getAccelZ());
@@ -351,6 +355,13 @@ void ArdIU::getLiftoff(float threshhold, int time) {
 	if(getAccel() < threshhold && !isLiftoff()) {
 		if(liftoffFlag != NO_FLAG) { flagBuffer[liftoffFlag].setNotLive(); }
 		liftoffFlag = setFlag(millis()+time, _atLiftoff);
+	}
+}
+void ArdIU::getBurnout(int time) {
+	BetterVectorFloat accf = BetterVectorFloat(accel.x, accel.y, accel.z);
+	if(accf.dotProduct(vertical) < 0 && !isBurnout()) {
+		if(burnoutFlag != NO_FLAG) { flagBuffer[burnoutFlag].setNotLive(); }
+		burnoutFlag = setFlag(millis()+time, _atBurnout);
 	}
 }
 
