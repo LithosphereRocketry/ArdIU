@@ -359,7 +359,7 @@ void ArdIU::getLiftoff(float threshhold, int time) {
 }
 void ArdIU::getBurnout(int time) {
 	BetterVectorFloat accf = BetterVectorFloat(accel.x, accel.y, accel.z);
-	if(accf.dotProduct(vertical) < 0 && !isBurnout()) {
+	if(accf.dotProduct(vertical) > 0 && !isBurnout()) {
 		if(burnoutFlag != NO_FLAG) { flagBuffer[burnoutFlag].setNotLive(); }
 		burnoutFlag = setFlag(millis()+time, _atBurnout);
 	}
