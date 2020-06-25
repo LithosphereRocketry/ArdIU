@@ -24,11 +24,12 @@ void loop() {
       ArdIU::logData(250); // Log data, 250ms life
       ArdIU::getApogee(500, 0); // Check for apogee, 500ms verification time, no drop distance
       
+      ArdIU::getBurnout(500);
       if(ArdIU::isApogee()) { // If apogee...
         ArdIU::fire(0, 1000); // fire first channel for 1 sec
       }
     } else { // if we're still on the ground...
-      ArdIU::getLiftoff(3, 200); // Check for acceleration - 3 G for 0.2 sec
+      ArdIU::getLiftoff(1.5, 200); // Check for acceleration - 3 G for 0.2 sec
       digitalWrite(LED, HIGH); // red LED, ready for launch
     }
   } while(!ArdIU::imuInterrupt);
