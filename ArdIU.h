@@ -278,6 +278,6 @@ private:
 	static byte imuDevStatus;
 	static byte bytesBuffered;
 	static byte apogeeFlag, burnoutFlag, liftoffFlag;
-        static void restartFlag(byte flag, void (*event)(), int time);
+        static void restartFlag(byte &flag, void (*event)(), int time);
 };
 #endif

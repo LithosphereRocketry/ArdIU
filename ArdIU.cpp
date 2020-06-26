@@ -345,7 +345,7 @@ void _atLiftoff() {
 }
 void _atApogee() { ArdIU::tApogee = millis(); }
 
-void ArdIU::restartFlag(byte flag, void (*event)(), int time)
+void ArdIU::restartFlag(byte &flag, void (*event)(), int time)
 {
 	if(flag != NO_FLAG) { flagBuffer[flag].setNotLive(); }
 	flag = setFlag(millis()+time, event);
