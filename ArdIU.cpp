@@ -107,8 +107,8 @@ void ArdIU::setGroundAlt() {
 		float total = 0.0;
 		const int num = 20;
 		for(int i = 0; i < num; i++) {
-            total += getAlt();
-			delay(100);
+                    total += getAlt();
+                    delay(100);
 		}	
 		groundAlt = total/num;
 	}
@@ -120,10 +120,8 @@ unsigned long int ArdIU::getMET() {
 }
 
 float ArdIU::getAlt() {
-  float temperature = 0;
-  float pressure = 0;
-  float alt = 0;
-  while(! pBaro -> getMeasurements(temperature, pressure, alt));
+  float alt = 0.0;
+  while(! pBaro -> getAltitude(alt));
   return alt;
 }
 
@@ -301,8 +299,6 @@ void ArdIU::logData(int baro_e_life) {
 	
 	if (isBaro) {
 		altitude = getAltSmoothed(baro_e_life);
-		Serial.println(altitude);
-		
 		store(altitude);
 	}
 	if(isIMU) {
