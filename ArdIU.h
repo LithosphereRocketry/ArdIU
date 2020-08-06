@@ -2,7 +2,7 @@
 
 A library designed for the ArdIU custom flight computer by Ben Graham. This library can be used in other
 Arduino-based altimeters using the same major components, namely the MPU6050 gyroscope/accelerometer and the
-BMP-280 barometric sensor. The library supports datalogging on an SD card, which is included as part of the
+BMP-280 pBarometric sensor. The library supports datalogging on an SD card, which is included as part of the
 standard ArdIU.
 
 This library builds on stock Arduino libraries as well as the Adafruit Sensor and BMP280 libraries as well as
@@ -69,9 +69,10 @@ THE SOFTWARE.
 #include "SPI.h"
 #include "SdFat.h"
 
-// barometer things
-#include "Adafruit_Sensor.h"
-#include "Adafruit_BMP280.h"
+// pBarometer things
+#include <BMP280_DEV.h>
+#include <Device.h>
+
 
 // IMU things
 #include "I2Cdev.h"
@@ -225,7 +226,7 @@ public:
 	static Flag flagBuffer[N_FLAGS];
 	
 	static MPU6050 imu;
-	static Adafruit_BMP280 *pBaro;
+	static BMP280_DEV* pBaro;
 	static SdFat SD;
 	static bool isIMU, isBaro, isSD;
 	static byte pyroPins[CHANNELS], contPins[CHANNELS];
@@ -235,7 +236,7 @@ public:
 	static void setVinDiv(long int res1, long int res2); // set the standard voltage divider for unregulated pins
 	static void setGroundAlt(); // calibrates the ground altitude; preferred against eventually
 	static unsigned long int getMET();
-	static float getAltSmoothed(int e_life); // returns the current barometric altitude, with smoothing
+	static float getAltSmoothed(int e_life); // returns the current pBarometric altitude, with smoothing
 	static float getAlt();
 	static float getVin(); // returns the voltage at the battery input, or about 0.5V less than VCC when powered over USB
 	static float getVoltage(int analog_in); // scales an analog input to a divided voltage using the standard voltage divider
@@ -278,6 +279,6 @@ private:
 	static byte imuDevStatus;
 	static byte bytesBuffered;
 	static byte apogeeFlag, burnoutFlag, liftoffFlag;
-        static void restartFlag(byte &flag, void (*event)(), int time);
+    static void restartFlag(byte &flag, void (*event)(), int time);
 };
 #endif

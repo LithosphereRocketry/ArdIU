@@ -14,7 +14,7 @@ ArdIU::Flag ArdIU::flagBuffer[N_FLAGS];
 
 // environmental and hardware stuff
 float ArdIU::vinScale = 1.0/11;
-Adafruit_BMP280* ArdIU::pBaro = NULL;
+BMP280_DEV* ArdIU::pBaro = NULL;
 MPU6050 ArdIU::imu;
 SdFat ArdIU::SD;
 char ArdIU::filename[] = "";
@@ -79,7 +79,7 @@ void ArdIU::begin() {
 	initSD();
 	beepBoolean(isSD, 100, 50); // check SD, status tone
 	initBaro();
-	beepBoolean(isBaro, 100, 50); // check baro, status tone
+	beepBoolean(isBaro, 100, 50); // check pBaro, status tone
 	
 	
 	for(int i = 0; i < CHANNELS; i++) { // setup pyroPins, beep out continuity
@@ -107,8 +107,7 @@ void ArdIU::setGroundAlt() {
 		float total = 0.0;
 		const int num = 20;
 		for(int i = 0; i < num; i++) {
-            if (isSD) { SD.begin(CS_SD); }
-			total += getAlt();
+            total += getAlt();
 			delay(100);
 		}	
 		groundAlt = total/num;
@@ -120,9 +119,12 @@ unsigned long int ArdIU::getMET() {
 	} else { return 0; }
 }
 
-float ArdIU::getAlt()
-{
-	return pBaro -> readAltitude(BASE_PRESSURE);
+float ArdIU::getAlt() {
+  float temperature = 0;
+  float pressure = 0;
+  float alt = 0;
+  while(! pBaro -> getMeasurements(temperature, pressure, alt));
+  return alt;
 }
 
 float ArdIU::getAltSmoothed(int e_life) {
@@ -197,12 +199,14 @@ void ArdIU::storeBytes(const char* bytes, int size) { // to prevent inlining
 void ArdIU::initBaro() {
 	if(pBaro) { delete pBaro; }
 	if(SCK == 13 && MISO == 12 && MOSI == 11) {
-		pBaro = new Adafruit_BMP280(CS_BARO);		
+		pBaro = new BMP280_DEV(CS_BARO);
+		isBaro = pBaro -> begin();
+		pBaro -> setTimeStandby(TIME_STANDBY_05MS); // set standby to 5ms
+		pBaro -> startNormalConversion();	
 	} else {
-		pBaro = new Adafruit_BMP280(SCK, MISO, MOSI, CS_BARO);
+		pBaro = NULL;
+		isBaro = false;
 	}
-	isBaro = pBaro -> begin();		
-//	Serial.println(isBaro);
 }
 
 void ArdIU::initIMU() {
@@ -297,6 +301,8 @@ void ArdIU::logData(int baro_e_life) {
 	
 	if (isBaro) {
 		altitude = getAltSmoothed(baro_e_life);
+		Serial.println(altitude);
+		
 		store(altitude);
 	}
 	if(isIMU) {
@@ -365,7 +371,7 @@ void ArdIU::getBurnout(int time) {
 
 void ArdIU::getApogee(int time, int altDrop) {
 	if(altitude > altApogee - altDrop && !isApogee()) {
-                restartFlag(apogeeFlag, _atApogee, time);
+        restartFlag(apogeeFlag, _atApogee, time);
 	}
 }
 
