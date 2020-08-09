@@ -43,9 +43,6 @@ THE SOFTWARE.
 #define BASE_PRESSURE 1013.25
 #endif
 
-
-// Note to self: <Stream>.flush() is evil.
-
 #ifndef ARDIU_H
 #define ARDIU_H
 

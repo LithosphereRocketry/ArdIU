@@ -172,8 +172,6 @@ void ArdIU::initSD() {
 			i++;
 		} 
 		SDPos = 0;
-		
-	//	File flightLog = SD.open(filename, FILE_WRITE);
 		store((long int) 3); // version header
 	}
 }
@@ -183,12 +181,10 @@ void ArdIU::storeBytes(const char* bytes, int size) { // to prevent inlining
 		buffer[bytesBuffered] = bytes[i];
 		bytesBuffered++;
 		if(bytesBuffered >= BUF_SIZE) {
-		//	SD.begin(CS_SD);
 			File flightLog = SD.open(filename, FILE_WRITE);
 			flightLog.seek(SDPos);
 			int written = flightLog.write(buffer, BUF_SIZE);
 			SDPos = flightLog.position();
-		//	flightLog.flush();
 			flightLog.close();
 			bytesBuffered = 0;
 		}
@@ -250,24 +246,21 @@ void ArdIU::initIMU() {
 }
 void ArdIU::getIMU() {
 	// Based on code by Jeff Rowberg
-	
-	// get current FIFO count
-	unsigned int fifoCount = imu.getFIFOCount();
-//	Serial.println(" FIFO counted");
-//	Serial.println(fifoCount);
-	
-	do {
-		// reset interrupt flag and get INT_STATUS byte
+
+	while(1) {
+        	// get current FIFO count
+	        unsigned int fifoCount = imu.getFIFOCount();
+
+                // reset interrupt flag and get INT_STATUS byte
 		byte mpuIntStatus = imu.getIntStatus();
-	//	Serial.println(" Status retrieved");
 		
-		// check for overflow (this should never happen unless our code is too inefficient)
+		// check for overflow
 		if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
 			// reset so we can continue cleanly
 			imu.resetFIFO();
 		//	Serial.println(" FIFO full, clearing");
-			fifoCount = imu.getFIFOCount();
-		// otherwise, check for DMP data ready interrupt (this should happen frequently)
+                        
+		// otherwise, check for DMP data ready interrupt
 		} else if (mpuIntStatus & 0x02) {
 			// wait for correct available data length, should be a VERY short wait
 			while (fifoCount < imuPacketSize) { fifoCount = imu.getFIFOCount(); }
@@ -275,13 +268,10 @@ void ArdIU::getIMU() {
 			// read a packet from FIFO
 			imu.getFIFOBytes(imuFifoBuffer, imuPacketSize);
 		//	Serial.println(" Packet read");
-			// track FIFO count here in case there is > 1 packet available
-			// (this lets us immediately read more without waiting for an interrupt)
-			fifoCount -= imuPacketSize;
-		//	Serial.println(" Read, looking for more packets");
+                //      Just read one packet
+                        break;
 		}
-	} while(fifoCount >= imuPacketSize);
-//	Serial.println(" FIFO emptied");
+	};
 	imuInterrupt = false;
 	
 	imu.dmpGetQuaternion(&imuQ, imuFifoBuffer);
