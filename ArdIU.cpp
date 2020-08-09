@@ -121,6 +121,7 @@ unsigned long int ArdIU::getMET() {
 
 float ArdIU::getAlt() {
   float alt = 0.0;
+  pBaro -> startForcedConversion();
   while(! pBaro -> getAltitude(alt));
   return alt;
 }
@@ -198,9 +199,10 @@ void ArdIU::initBaro() {
 	if(pBaro) { delete pBaro; }
 	if(SCK == 13 && MISO == 12 && MOSI == 11) {
 		pBaro = new BMP280_DEV(CS_BARO);
-		isBaro = pBaro -> begin();
-		pBaro -> setTimeStandby(TIME_STANDBY_05MS); // set standby to 5ms
-		pBaro -> startNormalConversion();	
+		isBaro = pBaro -> begin();  
+		pBaro -> setPresOversampling(OVERSAMPLING_X1);
+		pBaro -> setTempOversampling(OVERSAMPLING_X1);
+
 	} else {
 		pBaro = NULL;
 		isBaro = false;
@@ -252,6 +254,7 @@ void ArdIU::getIMU() {
 	// get current FIFO count
 	unsigned int fifoCount = imu.getFIFOCount();
 //	Serial.println(" FIFO counted");
+//	Serial.println(fifoCount);
 	
 	do {
 		// reset interrupt flag and get INT_STATUS byte
