@@ -55,7 +55,7 @@ THE SOFTWARE.
 #endif
 
 #ifndef N_FLAGS
-#define N_FLAGS 64
+#define N_FLAGS 16
 #endif
 
 // core Arduino library

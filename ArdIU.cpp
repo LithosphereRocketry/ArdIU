@@ -108,9 +108,10 @@ void ArdIU::setGroundAlt() {
 		const int num = 20;
 		for(int i = 0; i < num; i++) {
                     total += getAlt();
+//					Serial.println(total);
                     delay(100);
 		}	
-		groundAlt = total/num;
+		groundAlt = total/(float) num;
 	}
 }
 unsigned long int ArdIU::getMET() {
@@ -123,6 +124,8 @@ float ArdIU::getAlt() {
   float alt = 0.0;
   pBaro -> startForcedConversion();
   while(! pBaro -> getAltitude(alt));
+//  delay(100);
+//  Serial.println(alt);
   return alt;
 }
 
@@ -196,7 +199,7 @@ void ArdIU::initBaro() {
 	if(SCK == 13 && MISO == 12 && MOSI == 11) {
 		pBaro = new BMP280_DEV(CS_BARO);
 		isBaro = pBaro -> begin();  
-		pBaro -> setPresOversampling(OVERSAMPLING_X1);
+		pBaro -> setPresOversampling(OVERSAMPLING_X4);
 		pBaro -> setTempOversampling(OVERSAMPLING_X1);
 
 	} else {
