@@ -72,6 +72,7 @@ void ArdIU::begin() {
 	pinMode(LED, OUTPUT);
 	pinMode(CS_SD, OUTPUT);
 	digitalWrite(CS_SD, HIGH);
+
 	pinMode(VIN, INPUT);
 	
 	initIMU();
@@ -104,14 +105,16 @@ void ArdIU::setVinDiv(long int resGnd, long int resVin) { // for other devices, 
 }
 void ArdIU::setGroundAlt() {
 	if(isBaro) {
+		getAlt();  // sometimes first reading is bogus so dump it
 		float total = 0.0;
 		const int num = 20;
 		for(int i = 0; i < num; i++) {
-                    total += getAlt();
-//					Serial.println(total);
                     delay(100);
+                    float alt = getAlt();
+                    // Serial.println(alt);
+                    total += alt;
 		}	
-		groundAlt = total/(float) num;
+		groundAlt = total/num;
 	}
 }
 unsigned long int ArdIU::getMET() {
@@ -124,8 +127,6 @@ float ArdIU::getAlt() {
   float alt = 0.0;
   pBaro -> startForcedConversion();
   while(! pBaro -> getAltitude(alt));
-//  delay(100);
-//  Serial.println(alt);
   return alt;
 }
 
@@ -198,10 +199,7 @@ void ArdIU::initBaro() {
 	if(pBaro) { delete pBaro; }
 	if(SCK == 13 && MISO == 12 && MOSI == 11) {
 		pBaro = new BMP280_DEV(CS_BARO);
-		isBaro = pBaro -> begin();  
-		pBaro -> setPresOversampling(OVERSAMPLING_X4);
-		pBaro -> setTempOversampling(OVERSAMPLING_X1);
-
+		isBaro = pBaro -> begin(SLEEP_MODE, OVERSAMPLING_X4, OVERSAMPLING_X1, IIR_FILTER_OFF, TIME_STANDBY_05MS);  
 	} else {
 		pBaro = NULL;
 		isBaro = false;
