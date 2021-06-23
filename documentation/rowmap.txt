@@ -1,0 +1,23 @@
+v4 (planned):
+0	version number (long)
+4	system status (long)
+========
+0	time (long)
+4	statemask (long)
+8	altitude (float)
+12	accx (float)
+16	accy (float)
+20	accz (float)
+24	tilt (float)
+28	user (long)
+
+v3 (current):
+0	version number (long)
+========
+0	time (long)
+4	statemask (long)
+8	altitude (float)
+12	accx (float)
+16	accy (float)
+20	accz (float)
+24	tilt (float)

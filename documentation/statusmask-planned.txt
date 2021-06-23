@@ -1,0 +1,4 @@
+(LSB)
+0	IMU status
+1	SD status
+2	Baro status

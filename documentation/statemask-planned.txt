@@ -15,14 +15,14 @@
 13 ...
 14 ...
 15 (Channel 7 cont)
-16 IMU status
-17 SD status
-18 Baro status
-19
-20
-21
-22
-23
+16 Channel 0 fired
+17 Channel 1 fired
+18 Channel 2 fired
+19 ...
+20 ...
+21 ...
+22 ...
+23 (Channel 7 fired)
 24 isLiftoff
 25 isBurnout
 26 isApogee

@@ -294,12 +294,18 @@ void ArdIU::logData(int baro_e_life) {
 	if (isBaro) {
 		altitude = getAltSmoothed(baro_e_life);
 		store(altitude);
-	}
+		if(altitude > altApogee) { altApogee = altitude; }
+	} else { store(0.0); }
 	if(isIMU) {
 		store(getAccelX());
 		store(getAccelY());
 		store(getAccelZ());
 		store(getTilt());
+	} else {
+		store(0.0);
+		store(0.0);
+		store(0.0);
+		store(0.0);
 	}
 	
 }
