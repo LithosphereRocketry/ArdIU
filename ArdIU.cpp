@@ -1,9 +1,6 @@
 // ArdIU Library source
 #include "ArdIU.h"
 
-// This library is set up weirdly, so it has to go in the source:
-#include "MPU6050_6Axis_MotionApps20.h"
-
 #define NO_CHANNEL -1
 #define NO_FLAG -1
 
@@ -243,31 +240,7 @@ void ArdIU::initIMU() {
 void ArdIU::getIMU() {
 	// Based on code by Jeff Rowberg
 
-	while(1) { // until we have all of our data...
-        	// get current FIFO count
-	        unsigned int fifoCount = imu.getFIFOCount();
-
-                // reset interrupt flag and get INT_STATUS byte
-		byte mpuIntStatus = imu.getIntStatus();
-		
-		// check for overflow
-		if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
-			// reset so we can continue cleanly
-			imu.resetFIFO();
-		//	Serial.println(" FIFO full, clearing");
-                        
-		// otherwise, check for DMP data ready interrupt
-		} else if (mpuIntStatus & 0x02) {
-			// wait for correct available data length, should be a VERY short wait
-			while (fifoCount < imuPacketSize) { fifoCount = imu.getFIFOCount(); }
-		//	Serial.println(" Full packet recieved");
-			// read a packet from FIFO
-			imu.getFIFOBytes(imuFifoBuffer, imuPacketSize);
-		//	Serial.println(" Packet read");
-                //      Just read one packet
-                        break;
-		}
-	};
+	imu.dmpGetCurrentFIFOPacket(imuFifoBuffer);
 	imuInterrupt = false; // we've received the interrupt
 	
 	imu.dmpGetQuaternion(&imuQ, imuFifoBuffer); // unpack the data we just got
@@ -370,7 +343,7 @@ void ArdIU::getApogee(int time, int altDrop) {
 }
 
 float ArdIU::getTilt() {
-	BetterVectorFloat v = BetterVectorFloat(vertical.x, vertical.y, vertical.z); copy the vertical vector
+	BetterVectorFloat v = BetterVectorFloat(vertical.x, vertical.y, vertical.z); // copy the vertical vector
 	v.rotate(&imuQ); // rotate the vertical vector by the measured rotation
 	return acos(v.dotProduct(vertical)); // find the angle between it and the original vertical
 }
