@@ -60,6 +60,7 @@ THE SOFTWARE.
 
 // core Arduino library
 #include "Arduino.h"
+#include "VectorMath_I2CDev.h"
 //#include "math.h"
 
 // datalogging things
@@ -123,21 +124,6 @@ THE SOFTWARE.
 #define LIVE_FLAG (((unsigned long int)1) << 31)
 #define TIME_MASK (LIVE_FLAG - 1)
 
-class VectorInt16Improved: public VectorInt16 {
-  public:
-	int getMagnitude() { // Original function from helper_3dmath.h breaks on dimensions higher than 255
-		return sqrt(((long) x)*x + ((long) y)*y + ((long) z)*z); // Cast to long to avoid overflow
-	}
-};
-
-class BetterVectorFloat: public VectorFloat {
- public:
-  BetterVectorFloat(float x, float y, float z): VectorFloat(x, y, z) {}
-  BetterVectorFloat(): VectorFloat() {}
-  float dotProduct(VectorFloat v) {
-	  return v.x*x + v.y*y + v.z*z;
-  }
-};
 #define IMU_BUFFER_SIZE 64
 
 class ArdIU {
@@ -186,12 +172,10 @@ public:
 	static void getIMU(); // pull data from IMU buffer
 	
 	// get acceleration values, converted from unitless sensor values
-	static float getAccelX() { return accel.x/1024.0; } 
-	static float getAccelY() { return accel.y/1024.0; }
-	static float getAccelZ() { return accel.z/1024.0; }
-	static float getAccel()  { return accel.getMagnitude()/1024.0; }
-	
-	static VectorFloat getVF(VectorInt16 vector) { return VectorFloat(vector.x, vector.y, vector.z); } // convert a vector from ints to floats
+	static float getAccelX() { return accel.x; } 
+	static float getAccelY() { return accel.y; }
+	static float getAccelZ() { return accel.z; }
+	static float getAccel()  { return accel.mag(); }
 	
 	static void beepBoolean(bool input, int onTime, int offTime); // play a status tone, either true (high note) or false (low note)
 	
@@ -243,8 +227,10 @@ public:
 	static bool isIMU, isBaro, isSD; // flags for whether each core system is active
 	static byte pyroPins[CHANNELS], contPins[CHANNELS]; // list of pin assigments for pyrotechnic channels
 	static float groundAlt; // ground altitude
-	static BetterVectorFloat vertical; // vector representing initial acceleration
-	
+	static VectorF vertical; // vector representing initial acceleration
+	static QuatF rotation; // rotation from IMU
+	static VectorF accel; // acceleration from IMU
+
 	static void setVinDiv(long int res1, long int res2); // set the standard voltage divider for unregulated pins
 	static void setGroundAlt(); // calibrates the ground altitude; preferred against eventually
 	
@@ -287,8 +273,6 @@ private:
 	static float smooth2;
 	static float smooth3;
 	static float vinScale; // scaling factor for battery readings
-	static Quaternion imuQ; // rotation from IMU
-	static VectorInt16Improved accel; // acceleration from IMU
 //	static VectorInt16Improved accelWorld; // Gravity doesn't necessarily work with +/-16G mode so these are ignored
 //	static VectorFloat gravity;
 	

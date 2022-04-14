@@ -4,6 +4,8 @@
 #define NO_CHANNEL -1
 #define NO_FLAG -1
 
+//#define LOUD
+
 // default ArdIU pinout
 byte ArdIU::pyroPins[CHANNELS];
 byte ArdIU::contPins[CHANNELS];
@@ -41,9 +43,9 @@ byte ArdIU::imuDevStatus;
 unsigned int ArdIU::imuPacketSize;
 byte ArdIU::imuFifoBuffer[IMU_BUFFER_SIZE];
 
-Quaternion ArdIU::imuQ;
-VectorInt16Improved ArdIU::accel;
-BetterVectorFloat ArdIU::vertical;
+QuatF ArdIU::rotation;
+VectorF ArdIU::accel;
+VectorF ArdIU::vertical;
 // VectorInt16 ArdIU::accelWorld;
 // VectorFloat ArdIU::gravity;
 volatile bool ArdIU::imuInterrupt;
@@ -51,8 +53,10 @@ volatile bool ArdIU::imuInterrupt;
 void ArdIU::dmpDataReady() { imuInterrupt = true; }
  
 void ArdIU::beepBoolean(bool input, int onTime, int offTime) {
+#ifdef LOUD
 	tone(BUZZER, 1000+(input?1000:0), onTime); // tone is parallel because it runs in a system register or something...
 	delay(onTime+offTime); // so include on time in delay
+#endif
 }
 
 void ArdIU::begin() {
@@ -243,8 +247,13 @@ void ArdIU::getIMU() {
 	imu.dmpGetCurrentFIFOPacket(imuFifoBuffer);
 	imuInterrupt = false; // we've received the interrupt
 	
+	Quaternion imuQ;
+	VectorInt16 imuAccel;
 	imu.dmpGetQuaternion(&imuQ, imuFifoBuffer); // unpack the data we just got
-	imu.dmpGetAccel(&accel, imuFifoBuffer);
+	imu.dmpGetAccel(&imuAccel, imuFifoBuffer);
+	
+	rotation = toQuatF(imuQ);
+	accel = toVectorF(imuAccel);
 }
 
 void ArdIU::logData(int baro_e_life) {
@@ -312,7 +321,7 @@ bool ArdIU::isApogee() { return tApogee > 0; }
 void _atBurnout() { ArdIU::tBurnout = millis(); } // function to be run when we detect burnout
 void _atLiftoff() { // function to be run when we detect liftoff
 	ArdIU::tLiftoff = millis();
-	ArdIU::vertical = BetterVectorFloat(ArdIU::getAccelX(), ArdIU::getAccelY(), ArdIU::getAccelZ());
+	ArdIU::vertical = ArdIU::accel;
 	ArdIU::vertical.normalize(); // when liftoff detected, record our vertical vector to be our current acceleration
 }
 void _atApogee() { ArdIU::tApogee = millis(); } // function to be run when we detect apogee
@@ -330,8 +339,7 @@ void ArdIU::getLiftoff(float threshhold, int time) {
 	}
 }
 void ArdIU::getBurnout(int time) {
-	BetterVectorFloat accf = BetterVectorFloat(accel.x, accel.y, accel.z);
-	if(accf.dotProduct(vertical) > 0 && !isBurnout()) { // if we're accelerating upward, reset the flag's timer
+	if(accel.dot(vertical) > 0 && !isBurnout()) { // if we're accelerating upward, reset the flag's timer
 		restartFlag(burnoutFlag, _atBurnout, time);
 	}
 }
@@ -343,7 +351,7 @@ void ArdIU::getApogee(int time, int altDrop) {
 }
 
 float ArdIU::getTilt() {
-	BetterVectorFloat v = BetterVectorFloat(vertical.x, vertical.y, vertical.z); // copy the vertical vector
-	v.rotate(&imuQ); // rotate the vertical vector by the measured rotation
-	return acos(v.dotProduct(vertical)); // find the angle between it and the original vertical
+	VectorF v = vertical;
+	v.rotate(rotation); // rotate the vertical vector by the measured rotation
+	return acos(v.dot(vertical)); // find the angle between it and the original vertical
 }
