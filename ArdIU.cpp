@@ -93,6 +93,7 @@ void ArdIU::begin() {
 		beepBoolean(getCont(i), 250, 250);
 	}
 	
+	pBaro -> startNormalConversion();
 	setGroundAlt(); // establish zero
 }
 void ArdIU::setVinDiv(long int resGnd, long int resVin) { // for other devices, set the VIN voltage divider
@@ -120,7 +121,7 @@ unsigned long int ArdIU::getMET() {
 
 float ArdIU::getAlt() {
   float alt = 0.0; // give the altitude somewhere to go
-  pBaro -> startForcedConversion(); // tell the barometer to start reading
+//  pBaro -> startForcedConversion(); // tell the barometer to start reading
   while(! pBaro -> getAltitude(alt)); // wait until we get a reading, then dump it in alt; this is by reference and therefore looks kinda weird
   return alt;
 }
@@ -346,7 +347,7 @@ void ArdIU::getBurnout(int time) {
 
 void ArdIU::getApogee(int time, int altDrop) {
 	if(altitude > altApogee - altDrop && !isApogee()) { // if we aren't more than a certain margin below our apogee, reset the flag's timer
-      		restartFlag(apogeeFlag, _atApogee, time);
+      	restartFlag(apogeeFlag, _atApogee, time);
 	}
 }
 

@@ -16,6 +16,9 @@ enum StockVector {
 };
 
 class QuatF; // pre-declare so we can use it in VectorF
+
+// using the Printable interface here burns an additional 2 bytes to point to a VFtable;
+// whether that is worth the convenience is an open quesiton; looking into better ways
 class VectorF: public Printable {
   public:
 	float x, y, z;

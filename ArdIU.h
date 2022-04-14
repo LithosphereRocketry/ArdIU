@@ -60,7 +60,6 @@ THE SOFTWARE.
 
 // core Arduino library
 #include "Arduino.h"
-#include "VectorMath_I2CDev.h"
 //#include "math.h"
 
 // datalogging things
@@ -73,12 +72,9 @@ THE SOFTWARE.
 
 
 // IMU things
-#include "I2Cdev.h"
-#include "helper_3dmath.h"
 #include "EEPROM.h"
-
-// MotionApps 6.12 DMP implementation, built using the MPU-6050EVB evaluation board
 #include "MPU6050_6Axis_MotionApps20.h"
+#include "VectorMath_I2CDev.h"
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
 	#include "Wire.h"
