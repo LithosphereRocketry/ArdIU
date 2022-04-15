@@ -4,7 +4,7 @@
 #define NO_CHANNEL -1
 #define NO_FLAG -1
 
-//#define LOUD
+// #define LOUD
 
 // default ArdIU pinout
 byte ArdIU::pyroPins[CHANNELS];
@@ -46,6 +46,7 @@ byte ArdIU::imuFifoBuffer[IMU_BUFFER_SIZE];
 QuatF ArdIU::rotation;
 VectorF ArdIU::accel;
 VectorF ArdIU::vertical;
+VectorF ArdIU::worldVertical;
 // VectorInt16 ArdIU::accelWorld;
 // VectorFloat ArdIU::gravity;
 volatile bool ArdIU::imuInterrupt;
@@ -322,8 +323,8 @@ bool ArdIU::isApogee() { return tApogee > 0; }
 void _atBurnout() { ArdIU::tBurnout = millis(); } // function to be run when we detect burnout
 void _atLiftoff() { // function to be run when we detect liftoff
 	ArdIU::tLiftoff = millis();
-	ArdIU::vertical = ArdIU::accel;
-	ArdIU::vertical.normalize(); // when liftoff detected, record our vertical vector to be our current acceleration
+	ArdIU::vertical = ArdIU::accel.normalize();
+	ArdIU::worldVertical = ArdIU::vertical.rotate(ArdIU::rotation);
 }
 void _atApogee() { ArdIU::tApogee = millis(); } // function to be run when we detect apogee
 
@@ -352,7 +353,6 @@ void ArdIU::getApogee(int time, int altDrop) {
 }
 
 float ArdIU::getTilt() {
-	VectorF v = vertical;
-	v.rotate(rotation); // rotate the vertical vector by the measured rotation
-	return acos(v.dot(vertical)); // find the angle between it and the original vertical
+	VectorF v = worldVertical.rotate(~rotation);
+	return acos(vertical.dot(v)); // find the angle between it and the original vertical
 }

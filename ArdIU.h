@@ -2,7 +2,7 @@
 
 A library designed for the ArdIU custom flight computer by Ben Graham. This library can be used in other
 Arduino-based altimeters using the same major components, namely the MPU6050 gyroscope/accelerometer and the
-BMP-280 pBarometric sensor. The library supports datalogging on an SD card, which is included as part of the
+BMP-280 barometric sensor. The library supports datalogging on an SD card, which is included as part of the
 standard ArdIU.
 
 This library builds on stock Arduino libraries as well as the Adafruit Sensor and BMP280 libraries as well as
@@ -66,7 +66,7 @@ THE SOFTWARE.
 #include "SPI.h"
 #include "SdFat.h"
 
-// pBarometer things
+// barometer things
 #include <BMP280_DEV.h>
 #include <Device.h>
 
@@ -224,6 +224,7 @@ public:
 	static byte pyroPins[CHANNELS], contPins[CHANNELS]; // list of pin assigments for pyrotechnic channels
 	static float groundAlt; // ground altitude
 	static VectorF vertical; // vector representing initial acceleration
+	static VectorF worldVertical; // vector representing initial acceleration, rotated
 	static QuatF rotation; // rotation from IMU
 	static VectorF accel; // acceleration from IMU
 

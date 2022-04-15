@@ -31,6 +31,10 @@ class VectorF: public Printable {
 
 	float magSq() const;
 	float mag() const;
+	VectorF negate() const;
+	inline VectorF operator - () const { return negate(); }
+	VectorF add(VectorF other) const;
+	inline VectorF operator + (VectorF other) const { return add(other); }
 	VectorF scale(float s) const;
 	inline VectorF operator * (float s) const { return scale(s); }
 	inline VectorF normalize() { return scale(1/mag()); }

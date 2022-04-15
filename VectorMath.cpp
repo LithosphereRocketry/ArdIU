@@ -39,6 +39,12 @@ float VectorF::magSq() const {
 float VectorF::mag() const {
 	return sqrt(magSq());
 }
+VectorF VectorF::negate() const {
+	return VectorF(-x, -y, -z);
+}
+VectorF VectorF::add(VectorF other) const {
+	return VectorF(x+other.x, y+other.y, z+other.z);
+}
 VectorF VectorF::scale(float s) const {
 	return VectorF(s*x, s*y, s*z);
 }
