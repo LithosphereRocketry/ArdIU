@@ -255,6 +255,14 @@ public:
 		}
 	}
 	
+	struct DataFrame {
+		unsigned long time;
+		unsigned long state;
+		float altitude;
+		float accx, accy, accz;
+		float tilt;
+	};
+	
 //  flightXX.aiu 
 #define MAX_FILE_LEN 16
 

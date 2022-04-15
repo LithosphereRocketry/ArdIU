@@ -259,36 +259,35 @@ void ArdIU::getIMU() {
 }
 
 void ArdIU::logData(int baro_e_life) {
-	long int met = getMET(); // store current mission clock
-	store(met);
-	long int statemask = 0;
+	
+	DataFrame currentFrame;
+	
+	currentFrame.time = getMET(); // store current mission clock
 	
 	// STATEMASK THINGS
-	statemask += (byte) (getVin()*16); // bits 0-7: battery voltage (0-16V * 16)
+	currentFrame.state += (byte) (getVin()*16); // bits 0-7: battery voltage (0-16V * 16)
 	for(int i = 0; i < CHANNELS && i < 8; i++) {
-		statemask |= getCont(i) << (i+8); // place a 1 at each position that has continuity from bits 8 to 15
+		currentFrame.state |= getCont(i) << (i+8); // place a 1 at each position that has continuity from bits 8 to 15
 	}
-	statemask += ((long) isIMU << 16) | ((long) isSD << 17) | ((long) isBaro << 18) |
+	currentFrame.state += ((long) isIMU << 16) | ((long) isSD << 17) | ((long) isBaro << 18) |
                      ((long) isLiftoff() << 24) | ((long) isBurnout() << 25) | ((long) isApogee() << 26); // place sensor states and flight states in corresponding bit positions in statemask
-	store(statemask);
 	
 	if (isBaro) {
-		altitude = getAltSmoothed(baro_e_life);
-		store(altitude); // store altitude value
-		if(altitude > altApogee) { altApogee = altitude; } // check for apogee while we're here (this should really be reorganized)
-	} else { store(0.0); } // if we don't have a reading, store dummy values to keep spacing
+		currentFrame.altitude = getAltSmoothed(baro_e_life);
+		if(currentFrame.altitude > altApogee) { altApogee = currentFrame.altitude; } // check for apogee while we're here (this should really be reorganized)
+	} else { currentFrame.altitude = 0; } // if we don't have a reading, store dummy values to keep spacing
 	if(isIMU) {
-		store(getAccelX()); // store accel/gyro values
-		store(getAccelY());
-		store(getAccelZ());
-		store(getTilt());
+		currentFrame.accx = getAccelX(); // store accel/gyro values
+		currentFrame.accy = getAccelY(); // store accel/gyro values
+		currentFrame.accz = getAccelZ(); // store accel/gyro values
+		currentFrame.tilt = getTilt();
 	} else {
-		store(0.0);
-		store(0.0);
-		store(0.0);
-		store(0.0);
-	} // if we don't have a reading, store dummy values to keep spacing
-	
+		currentFrame.accx = 0;
+		currentFrame.accy = 0;
+		currentFrame.accz = 0;
+		currentFrame.tilt = 0;
+	}
+	store(currentFrame);
 }
 byte ArdIU::setFlag(long int met, void (*event)()) {
 	int i;
