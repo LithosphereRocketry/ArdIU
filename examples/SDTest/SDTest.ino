@@ -21,7 +21,7 @@ void loop() {
         ArdIU::fire(0, 1000); // fire first channel for 1 sec
       }
     } else { // if we're still on the ground...
-      ArdIU::getLiftoff(3, 200); // Check for acceleration - 3 G for 0.2 sec
+      ArdIU::getLiftoff(30, 200); // Check for acceleration - 3 G for 0.2 sec
       digitalWrite(LED, HIGH); // red LED, ready for launch
     }
   } while(!ArdIU::imuInterrupt);
