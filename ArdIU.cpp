@@ -6,11 +6,6 @@
 
 // #define LOUD
 
-// default ArdIU pinout
-byte ArdIU::pyroPins[CHANNELS];
-byte ArdIU::contPins[CHANNELS];
-ArdIU::Flag ArdIU::flagBuffer[N_FLAGS];
-
 // environmental and hardware stuff
 float ArdIU::vinScale = 1.0/11;
 BMP280_DEV* ArdIU::pBaro = NULL;
@@ -22,22 +17,21 @@ byte ArdIU::bytesBuffered = 0;
 bool ArdIU::isIMU = false;
 bool ArdIU::isBaro = false;
 bool ArdIU::isSD = false;
-bool ArdIU::channelFired[CHANNELS];
+ArdIU::FlightState ArdIU::state = ArdIU::NONE;
 float ArdIU::groundAlt = 0.0;
-long int ArdIU::tLiftoff = 0;
-long int ArdIU::tApogee = 0;
-long int ArdIU::tBurnout = 0;
-long int ArdIU::lastBaro = 0;
+unsigned long ArdIU::lastBaro = 0;
+unsigned long ArdIU::lastStateReset = 0;
 float ArdIU::smooth1 = 0.0;
 float ArdIU::smooth2 = 0.0;
 float ArdIU::smooth3 = 0.0;
 float ArdIU::altitude = 0.0;
 float ArdIU::altApogee = 0.0;
-byte ArdIU::apogeeFlag = NO_FLAG;
-byte ArdIU::burnoutFlag = NO_FLAG;
-byte ArdIU::liftoffFlag = NO_FLAG;
 byte ArdIU::buffer[BUF_SIZE];
-// File ArdIU::flightLog;
+ArdIU::Channel ArdIU::channels[] = {
+	Channel(3, A1),
+	Channel(4, A2),
+	Channel(5, A3)
+};
 
 byte ArdIU::imuDevStatus;
 unsigned int ArdIU::imuPacketSize;
@@ -47,8 +41,6 @@ QuatF ArdIU::rotation;
 VectorF ArdIU::accel;
 VectorF ArdIU::vertical;
 VectorF ArdIU::worldVertical;
-// VectorInt16 ArdIU::accelWorld;
-// VectorFloat ArdIU::gravity;
 volatile bool ArdIU::imuInterrupt;
 
 void ArdIU::dmpDataReady() { imuInterrupt = true; }
@@ -63,13 +55,7 @@ void ArdIU::beepBoolean(bool input, int onTime, int offTime) {
 void ArdIU::begin() {
 	// initialize pyro pinout
 	for(int i = 0; i < CHANNELS; i++) { // first 3 channels default, all others NO_CHANNEL
-		if(i < 3) {
-			pyroPins[i] = i+3;  // 3, 4, 5
-			contPins[i] = i+A1; // A1, A2, A3
-		} else {
-			pyroPins[i] = NO_CHANNEL; // set pyro channels to unknown - with more than 3 there's no good way to set up defaults
-			contPins[i] = NO_CHANNEL;
-		}
+		channels[i].begin();
 	}
 	pinMode(BUZZER, OUTPUT); // setup all the pins
 	pinMode(LED, OUTPUT);
@@ -84,14 +70,8 @@ void ArdIU::begin() {
 	initBaro();
 	beepBoolean(isBaro, 100, 50); // check baro, status tone
 	
-	
-	for(int i = 0; i < CHANNELS; i++) { // setup pyroPins, beep out continuity
-		pinMode(pyroPins[i], OUTPUT);
-		pinMode(contPins[i], INPUT);
-		digitalWrite(pyroPins[i], LOW);
-	}
-	for(int i = 0; i < CHANNELS; i++) { // setup pyroPins, beep out continuity
-		beepBoolean(getCont(i), 250, 250);
+	for(int i = 0; i < CHANNELS; i++) { // beep out continuity
+		beepBoolean(channels[i].getCont(), 250, 250);
 	}
 	
 	pBaro -> startNormalConversion();
@@ -106,18 +86,20 @@ void ArdIU::setGroundAlt() {
 		float total = 0.0;
 		const int num = 20;
 		for(int i = 0; i < num; i++) { // take a bunch of readings, 100ms apart, to correct for wind, etc
-                    delay(100);
-                    float alt = getAlt();
-                    // Serial.println(alt);
-                    total += alt;
+			delay(100);
+			float alt = getAlt();
+			// Serial.println(alt);
+			total += alt;
 		}	
 		groundAlt = total/num;
 	}
 }
+
 unsigned long int ArdIU::getMET() {
-	if(tLiftoff > 0) {
+	/*if(tLiftoff > 0) {
 		return millis()-tLiftoff;
-	} else { return 0; } // if we haven't lifted off, leave MET at 0
+	} else { return 0; } // if we haven't lifted off, leave MET at 0*/
+	return millis(); // debatable whether MET (after liftoff) is useful as a stat
 }
 
 float ArdIU::getAlt() {
@@ -127,7 +109,7 @@ float ArdIU::getAlt() {
   return alt;
 }
 
-float ArdIU::getAltSmoothed(int e_life) {
+float ArdIU::getAltSmoothed(int e_life) { // might get rid of this, not sure it's needed or does much
 	// Quadratic exponential smoothing algorithm, a less known algorithm that attempts to fit data to a parabola
 	// https://en.wikipedia.org/wiki/Exponential_smoothing
 	float beta = exp(-((float) (getMET()-lastBaro))/e_life); // beta is basically an exponential decay parameter
@@ -148,15 +130,12 @@ float ArdIU::getVoltage(int analog_in) {
 float ArdIU::getVin() {
 	return getVoltage(analogRead(VIN)); // packaging these two functions for convenience
 }
-boolean ArdIU::getCont(int channel) {
-	float voltage = getVoltage(analogRead(contPins[channel]));
-	return voltage > getVin()*0.5 && contPins[channel] >= 0 && pyroPins[channel] >= 0;
-}
+
 
 #define MAX_FILES 100
 void ArdIU::initSD() {
 	isSD = SD.begin(CS_SD); // initialize SD library
-        filename[0] = 0;  // strcpy(filename, "") by exploiting properties of null-terminated strings
+    filename[0] = 0;  // strcpy(filename, "") by exploiting properties of null-terminated strings
 	if(isSD) { // if the card exists
 		int i = 0;
 		while(i < MAX_FILES) { // iterate until we find a file that still hasn't been written
@@ -259,7 +238,6 @@ void ArdIU::getIMU() {
 }
 
 void ArdIU::logData(int baro_e_life) {
-	
 	DataFrame currentFrame;
 	
 	currentFrame.time = getMET(); // store current mission clock
@@ -267,10 +245,10 @@ void ArdIU::logData(int baro_e_life) {
 	// STATEMASK THINGS
 	currentFrame.state += (byte) (getVin()*16); // bits 0-7: battery voltage (0-16V * 16)
 	for(int i = 0; i < CHANNELS && i < 8; i++) {
-		currentFrame.state |= getCont(i) << (i+8); // place a 1 at each position that has continuity from bits 8 to 15
+		currentFrame.state |= channels[i].getCont() << (i+8); // place a 1 at each position that has continuity from bits 8 to 15
 	}
 	currentFrame.state += ((long) isIMU << 16) | ((long) isSD << 17) | ((long) isBaro << 18) |
-                     ((long) isLiftoff() << 24) | ((long) isBurnout() << 25) | ((long) isApogee() << 26); // place sensor states and flight states in corresponding bit positions in statemask
+                     ((long) state << 24); // place sensor states and flight states in corresponding bit positions in statemask
 	
 	if (isBaro) {
 		currentFrame.altitude = getAltSmoothed(baro_e_life);
@@ -289,69 +267,48 @@ void ArdIU::logData(int baro_e_life) {
 	}
 	store(currentFrame);
 }
-byte ArdIU::setFlag(long int met, void (*event)()) {
-	int i;
-	for(i = 0; i < N_FLAGS && flagBuffer[i].isLive(); i++) {} // search for next open event
-	if(i < N_FLAGS) {
-		flagBuffer[i].set(met, event); // set the event in the first available slot
-		return i; // we found a slot
-	} else { return N_FLAGS; } // there were no slots available
+
+void ArdIU::update() {
+	// TODO
 }
 
-void ArdIU::getFlags() {
-	for(int i = 0; i < N_FLAGS; i++) { flagBuffer[i].getEvent(); } // check each flag in the array
-}
-
-void endFiring() { // flag function to shut off all pyros
-	for(int i = 0; i < CHANNELS; i++) {
-		digitalWrite(ArdIU::pyroPins[i], LOW);
-	}
-}
-void ArdIU::fire(int channel, int time) { // set a pyro channel high, then set a flag to turn it off after a set time
-	if(channel >= 0 && channel < CHANNELS && getCont(channel) && !channelFired[channel]) {
-		digitalWrite(pyroPins[channel], HIGH);
-		channelFired[channel] = true; // record that we fired this channel and shouldn't fire it again
-		setFlag(millis()+time, endFiring);
-	} // note: this implementation prevents overlapping firings but that shouldn't really affect anything realistically
-}
-
-bool ArdIU::isLiftoff() { return tLiftoff > 0; } // if any time is > 0, we've recorded it
-bool ArdIU::isBurnout() { return tBurnout > 0; }
-bool ArdIU::isApogee() { return tApogee > 0; }
-
-void _atBurnout() { ArdIU::tBurnout = millis(); } // function to be run when we detect burnout
-void _atLiftoff() { // function to be run when we detect liftoff
-	ArdIU::tLiftoff = millis();
+void _atLiftoff() { // function to be run when we detect liftoff; kept around as a way to keep this quat math
 	ArdIU::vertical = ArdIU::accel.normalize();
 	ArdIU::worldVertical = ArdIU::vertical.rotate(ArdIU::rotation);
-}
-void _atApogee() { ArdIU::tApogee = millis(); } // function to be run when we detect apogee
-
-void ArdIU::restartFlag(byte &flag, void (*event)(), int time) {
-	if(flag != NO_FLAG) { flagBuffer[flag].setNotLive(); } // if the flag exists, remove it
-	flag = setFlag(millis()+time, event); // and put a new one there with a reset timer and store the new location in flag
-}
-
-// Flight event detection is done via watchdog flags that are constantly reset whenever conditions are outside event parameters;
-// only if conditions stay favorable long enough for the timer to burn completely does the event fire
-void ArdIU::getLiftoff(float threshhold, int time) {
-	if(getAccel() < threshhold && !isLiftoff()) { // if we detect insufficient acceleration, reset the flag's timer
-		restartFlag(liftoffFlag, _atLiftoff, time);
-	}
-}
-void ArdIU::getBurnout(int time) {
-	if(accel.dot(vertical) > 0 && !isBurnout()) { // if we're accelerating upward, reset the flag's timer
-		restartFlag(burnoutFlag, _atBurnout, time);
-	}
-}
-
-void ArdIU::getApogee(int time, int altDrop) {
-	if(altitude > altApogee - altDrop && !isApogee()) { // if we aren't more than a certain margin below our apogee, reset the flag's timer
-      	restartFlag(apogeeFlag, _atApogee, time);
-	}
 }
 
 float ArdIU::getTilt() {
 	VectorF v = worldVertical.rotate(~rotation);
 	return acos(vertical.dot(v)); // find the angle between it and the original vertical
 }
+
+
+// Channels
+ArdIU::Channel::Channel(byte p, byte c): pin(p), contPin(c) {
+	condition = condNever;
+}
+void ArdIU::Channel::begin() {
+	pinMode(pin, OUTPUT);
+	pinMode(contPin, INPUT);
+	digitalWrite(pin, LOW);
+}
+void ArdIU::Channel::update() {
+	unsigned long t = millis(); // no idea if this saves anything
+	
+	if(!(*condition)()) {
+		hystStartTime = t;
+	} else if((canRefire || !fired) && t - hystStartTime > hystTime) {
+		digitalWrite(pin, HIGH);
+		fireStartTime = t;
+		fired = true;
+	}
+	
+	if(t - fireStartTime > fireTime) {
+		digitalWrite(pin, LOW);
+	}
+}
+bool ArdIU::Channel::getCont() {
+	return getVoltage(analogRead(contPin)) > getVin()*0.5;
+}
+
+bool ArdIU::Channel::condNever() { return false; }

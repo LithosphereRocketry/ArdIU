@@ -124,46 +124,61 @@ THE SOFTWARE.
 
 class ArdIU {
 public:
+	enum FlightState {
+		READY = 'r',
+		BOOST = 'b',
+		COAST = 'c',
+		DESCENT = 'd',
+		LAND = 'l',
+		NONE = 'n'
+	};
+	
+	class Channel {
+	  public: // as is, this class is very memory-inefficient; to be improved later
+		// the goal here is to get a functional interface and then trim it down as much as possible
+		
+		// hardware, might be able to optimize away
+		const byte pin; 
+		const byte contPin;
+		// user settings, changed once
+		char state;
+		bool canRefire;
+		unsigned int fireTime; // time to fire for (1 ms - 65 sec)
+		// Setting conditions for each possible parameter is inefficent and inflexible
+		// Bettery way to manage conditions: function pointers
+		// The user writes a function that returns whether or not the flight is within conditions and puts it here
+		bool (*condition)();
+		unsigned int hystTime; // how long it must maintain the given conditions (1 ms - 65 sec)
+		
+		// state variables
+		bool fired;
+		
+		// functions
+		Channel(byte p, byte c);
+		void begin();
+		void update();
+		bool getCont();
+		
+		static bool condNever();
+	  private:
+		// state variables
+		unsigned long fireStartTime; // these are big clunky int32s that can probably be trimmed
+		unsigned long hystStartTime;
+		
+	};
 // USER FUNCTIONS
 	// Setup & initialization
 	static void begin();	
 
 	static void logData(int e_life); 
 	// Collects data and logs to the SD card. Input- smoothing lifespan, typically a few hundred ms.
-
-	static void getFlags();
-	// Checks inflight events- almost always necessary.
-
-	static void getApogee(int time, int altDrop);
-	// Checks whether apogee has occured. Input- verification time, typically around 500-1000 ms,
-	// verification drop, set to 0 for standard apogee detect or an altitude in meters to add a
-	// descent distance threshhold
 	
-	static void getLiftoff(float threshhold, int time);
-	// Checks whether liftoff has occured based on accel. Input- trigger acceleration, verification time.
-	
-	static void getBurnout(int time);
-	// Checks whether burnout has occured based on direction of acceleration. Input- verification time.
-	
-	static bool channelFired[CHANNELS];
-	// Array storing whether each channel has fired. Channels are numbered 0-n (0-2 on a standard ArdIU).
-	
-	static void fire(int channel, int time); // Fires the specified channel for the specified time (ms).
-	// Avoid firing multiple channels in such a way that they "overlap"- ArdIU will stop all channels as
-	// soon as one channel's time ends.
-	
-	static bool isApogee(); // Returns whether the altimeter has detected apogee.
-	static bool isLiftoff(); // Returns whether the altimeter has detected liftoff.
-	static bool isBurnout(); // Returns whether the altimeter has detected motor burnout.
+	static void update();
 	
 	static volatile bool imuInterrupt; // IMU interrupt status flag
 	
-	static long int tBurnout; // time, relative to millis() system clock, of burnout detection
-	static long int tApogee; // time, relative to millis() system clock, of apogee detection
-	static long int tLiftoff; // time, relative to millis() system clock, of liftoff detection
-	
+	static float altitude;
 	static float altApogee; // highest altitude recorded so far
-	static float altitude; // current altitude as of last data frame
 	
 	static void getIMU(); // pull data from IMU buffer
 	
@@ -173,55 +188,17 @@ public:
 	static float getAccelZ() { return accel.z; }
 	static float getAccel()  { return accel.mag(); }
 	
-	static void beepBoolean(bool input, int onTime, int offTime); // play a status tone, either true (high note) or false (low note)
+	static Channel channels[CHANNELS];
 	
-	class Flag { // Flag class allows arbitrary events to be scheduled for a given time; it uses a bitmask to save memory 
-		     // (since booleans are stored as larger types, it actually saves a significant amount)
-		     // the compiler requires this to be in the header for some reason
-	  private:
-		unsigned long int time;  // high bit used for "live" boolean
-		void (*event)(); // low level C hackery to pass a function as a parameter
-	  public:
-		long int getTime() { return time & TIME_MASK; } // mask away the live bit
-		Flag() { // initialize a blank flag
-			time = 0;
-			event = NULL;
-		}
-		void set(long int timeIn, void (*eventIn)()) {
-			time = timeIn & TIME_MASK; // overlay the flag time using the bitmask
-			event = eventIn;
-			setLive();
-		}
-		void getEvent() { // see if the event should happen
-			if(isLive() && millis() > getTime()) { // if the time has passed and it's active...
-				(*event)(); // run it
-				setNotLive(); // set it inactive
-			}
-		}
-		
-		void setNotLive() { time = time & TIME_MASK; } // removes active flag from time:
-		//   time      Fxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-		// & TIME_MASK 01111111 11111111 11111111 11111111
-		// = time      0xxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-		
-		void setLive() { time = time | LIVE_FLAG; } // add active flag to time:
-		//   time      Fxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-		// | LIVE_FLAG 10000000 00000000 00000000 00000000
-		// = time      1xxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-		
-		bool isLive() { return ((time & LIVE_FLAG) != 0); } // reads active flag from time:
-		//   time      Fxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-		// & LIVE_FLAG 10000000 00000000 00000000 00000000
-		// =           F0000000 00000000 00000000 00000000
-	};
-	static byte setFlag(long int met, void (*event)()); // add a flag to the buffer
-	static Flag flagBuffer[N_FLAGS]; // buffer of flags that will be automatically handled
+	static void beepBoolean(bool input, int onTime, int offTime); // play a status tone, either true (high note) or false (low note)
 	
 	static MPU6050 imu; // IMU object
 	static BMP280_DEV* pBaro; // pointer to barometer object because this library prefers that
 	static SdFat SD; // SD card object
+	
 	static bool isIMU, isBaro, isSD; // flags for whether each core system is active
-	static byte pyroPins[CHANNELS], contPins[CHANNELS]; // list of pin assigments for pyrotechnic channels
+	
+	static FlightState state;
 	static float groundAlt; // ground altitude
 	static VectorF vertical; // vector representing initial acceleration
 	static VectorF worldVertical; // vector representing initial acceleration, rotated
@@ -236,7 +213,6 @@ public:
 	static float getAltSmoothed(int e_life); // returns the current barometric altitude, with smoothing
 	static float getVin(); // returns the voltage at the battery input, or about 0.5V less than VCC when powered over USB
 	static float getVoltage(int analog_in); // scales an analog input to a divided voltage using the standard voltage divider
-	static bool getCont(int channel); // returns whether continuity is detected on a given pyro channel
 	static float getTilt(); // returns current off-axis tilt from IMU
 	
 	static void initSD(); // initialize the SD card
@@ -267,24 +243,22 @@ public:
 #define MAX_FILE_LEN 16
 
 private:
-	static void dmpDataReady(); // returns whether data is waiting
-//	static File flightLog;
+	static void dmpDataReady(); // interrupt for when IMU data is ready
 	static char filename[MAX_FILE_LEN]; // current filename to write to
 	static byte buffer[BUF_SIZE]; // current data buffer to be written
 	static long int SDPos; // current SD card write location
-	static long int lastBaro; // last time a barometer reading was recorded, in MET
+	static unsigned long lastBaro; // last time a barometer reading was recorded, in MET
+	static unsigned long lastStateReset; // last time the current hysteresis state was reset
 	static byte imuFifoBuffer[IMU_BUFFER_SIZE]; // buffer for incoming IMU data
+	
 	static float smooth1; // smoothing parameters for barometer data
-	static float smooth2;
+	static float smooth2; // may get rid of this
 	static float smooth3;
+	
 	static float vinScale; // scaling factor for battery readings
-//	static VectorInt16Improved accelWorld; // Gravity doesn't necessarily work with +/-16G mode so these are ignored
-//	static VectorFloat gravity;
 	
 	static unsigned int imuPacketSize; // packet size for IMU buffer
 	static byte imuDevStatus; // status reading from IMU
 	static byte bytesBuffered; // number of bytes currently waiting to be written to card
-	static byte apogeeFlag, burnoutFlag, liftoffFlag; // addresses of various important flags; this might be reworked later
-	static void restartFlag(byte &flag, void (*event)(), int time); // restart a flag's timer
 };
 #endif
