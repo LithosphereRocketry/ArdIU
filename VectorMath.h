@@ -37,7 +37,7 @@ class VectorF: public Printable {
 	inline VectorF operator + (VectorF other) const { return add(other); }
 	VectorF scale(float s) const;
 	inline VectorF operator * (float s) const { return scale(s); }
-	inline VectorF normalize() { return scale(1/mag()); }
+	inline VectorF normalize() const { return scale(1/mag()); }
 	float dot(const VectorF &other) const;
 	VectorF cross(const VectorF &other) const;
 	VectorF rotate(const QuatF &q) const;
@@ -53,7 +53,7 @@ class QuatF: public Printable {
 	size_t printTo(Print& to) const;
 	
 	QuatF conj() const;
-	inline QuatF operator ~ () { return conj(); }
+	inline QuatF operator ~ () const { return conj(); }
 	QuatF mult(const QuatF& other) const;
 	inline QuatF operator * (const QuatF& other) const { return mult(other); }
 };

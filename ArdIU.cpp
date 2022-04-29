@@ -4,7 +4,7 @@
 #define NO_CHANNEL -1
 #define NO_FLAG -1
 
-// #define LOUD
+#define LOUD
 
 // environmental and hardware stuff
 float ArdIU::vinScale = 1.0/11;
@@ -20,12 +20,19 @@ bool ArdIU::isSD = false;
 ArdIU::FlightState ArdIU::state = ArdIU::NONE;
 float ArdIU::groundAlt = 0.0;
 unsigned long ArdIU::lastBaro = 0;
-unsigned long ArdIU::lastStateReset = 0;
-float ArdIU::smooth1 = 0.0;
-float ArdIU::smooth2 = 0.0;
-float ArdIU::smooth3 = 0.0;
+//float ArdIU::smooth1 = 0.0;
+//float ArdIU::smooth2 = 0.0;
+//float ArdIU::smooth3 = 0.0;
 float ArdIU::altitude = 0.0;
 float ArdIU::altApogee = 0.0;
+float ArdIU::altLand = 0.0;
+float ArdIU::landThresh = 10;
+float ArdIU::liftoffAccel = 30;
+
+HystCondition ArdIU::cLiftoff(200, stateConditionLiftoff);
+HystCondition ArdIU::cBurnout(100, stateConditionBurnout);
+HystCondition ArdIU::cApogee(1000, stateConditionApogee);
+HystCondition ArdIU::cLand(10000, stateConditionLand);
 byte ArdIU::buffer[BUF_SIZE];
 ArdIU::Channel ArdIU::channels[] = {
 	Channel(3, A1),
@@ -82,14 +89,14 @@ void ArdIU::setVinDiv(long int resGnd, long int resVin) { // for other devices, 
 }
 void ArdIU::setGroundAlt() {
 	if(isBaro) {
-		getAlt();  // sometimes first reading is bogus so dump it
+		readAlt();  // sometimes first reading is bogus so dump it
 		float total = 0.0;
 		const int num = 20;
 		for(int i = 0; i < num; i++) { // take a bunch of readings, 100ms apart, to correct for wind, etc
 			delay(100);
-			float alt = getAlt();
+			readAlt();
 			// Serial.println(alt);
-			total += alt;
+			total += altitude;
 		}	
 		groundAlt = total/num;
 	}
@@ -102,13 +109,10 @@ unsigned long int ArdIU::getMET() {
 	return millis(); // debatable whether MET (after liftoff) is useful as a stat
 }
 
-float ArdIU::getAlt() {
-  float alt = 0.0; // give the altitude somewhere to go
-//  pBaro -> startForcedConversion(); // tell the barometer to start reading
-  while(! pBaro -> getAltitude(alt)); // wait until we get a reading, then dump it in alt; this is by reference and therefore looks kinda weird
-  return alt;
+void ArdIU::readAlt() {
+  while(! pBaro -> getAltitude(altitude)); // wait until we get a reading, then dump it in alt; this is by reference and therefore looks kinda weird
 }
-
+/*
 float ArdIU::getAltSmoothed(int e_life) { // might get rid of this, not sure it's needed or does much
 	// Quadratic exponential smoothing algorithm, a less known algorithm that attempts to fit data to a parabola
 	// https://en.wikipedia.org/wiki/Exponential_smoothing
@@ -124,6 +128,7 @@ float ArdIU::getAltSmoothed(int e_life) { // might get rid of this, not sure it'
 	// float c = (sq(alpha) / sq(1-alpha)) * (smooth1 - 2*smooth2 + smooth3);
 	
 }
+*/
 float ArdIU::getVoltage(int analog_in) {
 	return analog_in*3.3/vinScale/1024.0; // reading -> voltage @ pin -> voltage @ input
 }
@@ -222,7 +227,7 @@ void ArdIU::initIMU() {
 		imu.setFullScaleAccelRange(MPU6050_ACCEL_FS_16); // set accel to +/-16 G mode
 	} else { isIMU = false; } // otherwise ignore it
 }
-void ArdIU::getIMU() {
+void ArdIU::readIMU() {
 	// Based on code by Jeff Rowberg
 
 	imu.dmpGetCurrentFIFOPacket(imuFifoBuffer);
@@ -237,7 +242,7 @@ void ArdIU::getIMU() {
 	accel = toVectorF(imuAccel);
 }
 
-void ArdIU::logData(int baro_e_life) {
+void ArdIU::logData() {
 	DataFrame currentFrame;
 	
 	currentFrame.time = getMET(); // store current mission clock
@@ -251,7 +256,7 @@ void ArdIU::logData(int baro_e_life) {
                      ((long) state << 24); // place sensor states and flight states in corresponding bit positions in statemask
 	
 	if (isBaro) {
-		currentFrame.altitude = getAltSmoothed(baro_e_life);
+		currentFrame.altitude = altitude;
 		if(currentFrame.altitude > altApogee) { altApogee = currentFrame.altitude; } // check for apogee while we're here (this should really be reorganized)
 	} else { currentFrame.altitude = 0; } // if we don't have a reading, store dummy values to keep spacing
 	if(isIMU) {
@@ -269,12 +274,47 @@ void ArdIU::logData(int baro_e_life) {
 }
 
 void ArdIU::update() {
-	// TODO
-}
-
-void _atLiftoff() { // function to be run when we detect liftoff; kept around as a way to keep this quat math
-	ArdIU::vertical = ArdIU::accel.normalize();
-	ArdIU::worldVertical = ArdIU::vertical.rotate(ArdIU::rotation);
+	if(imuInterrupt) {
+		readIMU();
+	}
+	readAlt();
+	switch(state) {
+		case READY:
+			if(cLiftoff.update(millis())) {
+				ArdIU::vertical = ArdIU::accel.normalize();
+				ArdIU::worldVertical = ArdIU::vertical.rotate(ArdIU::rotation);
+				state = BOOST;
+				cBurnout.reset(millis());
+			}
+			break;
+		case BOOST:
+			if(cBurnout.update(millis())) {
+				state = COAST;
+				cApogee.reset(millis());
+				cLiftoff.reset(millis());
+			}
+			break;
+		case COAST:
+			if(cLiftoff.update(millis())) {
+				state = BOOST;
+				cBurnout.reset(millis());
+			} else if(cApogee.update(millis())) {
+				state = DESCENT;
+				cLand.reset(millis());
+			}
+			break;
+		case DESCENT:
+			if(cLand.update(millis())) {
+				state = LAND;
+			}
+			break;
+		case LAND:
+			break;
+		case NONE:
+		default:
+			break;
+	}
+	logData();
 }
 
 float ArdIU::getTilt() {
@@ -284,20 +324,19 @@ float ArdIU::getTilt() {
 
 
 // Channels
-ArdIU::Channel::Channel(byte p, byte c): pin(p), contPin(c) {
-	condition = condNever;
+ArdIU::Channel::Channel(byte p, byte c): pin(p), contPin(c), HystCondition() {
+	
 }
 void ArdIU::Channel::begin() {
 	pinMode(pin, OUTPUT);
 	pinMode(contPin, INPUT);
 	digitalWrite(pin, LOW);
+	reset();
 }
 void ArdIU::Channel::update() {
 	unsigned long t = millis(); // no idea if this saves anything
 	
-	if(!(*condition)()) {
-		hystStartTime = t;
-	} else if((canRefire || !fired) && t - hystStartTime > hystTime) {
+	if(HystCondition::update(t) && (canRefire || !fired)) {
 		digitalWrite(pin, HIGH);
 		fireStartTime = t;
 		fired = true;
@@ -307,8 +346,9 @@ void ArdIU::Channel::update() {
 		digitalWrite(pin, LOW);
 	}
 }
+void ArdIU::Channel::reset() {
+	HystCondition::reset(millis());
+}
 bool ArdIU::Channel::getCont() {
 	return getVoltage(analogRead(contPin)) > getVin()*0.5;
 }
-
-bool ArdIU::Channel::condNever() { return false; }

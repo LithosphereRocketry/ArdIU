@@ -39,24 +39,8 @@ THE SOFTWARE.
 == Known issues ==
 */
 
-#ifndef BASE_PRESSURE
-#define BASE_PRESSURE 1013.25
-#endif
-
 #ifndef ARDIU_H
 #define ARDIU_H
-
-#ifndef CHANNELS
-#define CHANNELS 3
-#endif
-
-#ifndef BUF_SIZE
-#define BUF_SIZE 32
-#endif
-
-#ifndef N_FLAGS
-#define N_FLAGS 16
-#endif
 
 // core Arduino library
 #include "Arduino.h"
@@ -76,46 +60,29 @@ THE SOFTWARE.
 #include "MPU6050_6Axis_MotionApps20.h"
 #include "VectorMath_I2CDev.h"
 
+#include "HystCondition.h"
+
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
 	#include "Wire.h"
 #endif
 
+// system & operation parameters
+#define BASE_PRESSURE 1013.25
+#define CHANNELS 3
+#define BUF_SIZE 32
+#define N_FLAGS 16
+
 // Defaolt pinout definitions
-#ifndef SCK
 #define SCK 13
-#endif
-
-#ifndef MISO
 #define MISO 12
-#endif
-
-#ifndef MOSI
 #define MOSI 11
-#endif
-
-#ifndef CS_BARO
 #define CS_BARO 9
-#endif
-
-#ifndef CS_SD
 #define CS_SD 10
-#endif
-
-#ifndef BUZZER
 #define BUZZER 7
-#endif
-
-#ifndef LED
 #define LED 6
-#endif
-
-#ifndef VIN
 #define VIN A0
-#endif
-
-#ifndef INTERRUPT
 #define INTERRUPT 2
-#endif
+
 
 #define LIVE_FLAG (((unsigned long int)1) << 31)
 #define TIME_MASK (LIVE_FLAG - 1)
@@ -133,7 +100,7 @@ public:
 		NONE = 'n'
 	};
 	
-	class Channel {
+	class Channel: public HystCondition {
 	  public: // as is, this class is very memory-inefficient; to be improved later
 		// the goal here is to get a functional interface and then trim it down as much as possible
 		
@@ -141,13 +108,8 @@ public:
 		const byte pin; 
 		const byte contPin;
 		// user settings, changed once
-		char state;
 		bool canRefire;
 		unsigned int fireTime; // time to fire for (1 ms - 65 sec)
-		// Setting conditions for each possible parameter is inefficent and inflexible
-		// Bettery way to manage conditions: function pointers
-		// The user writes a function that returns whether or not the flight is within conditions and puts it here
-		bool (*condition)();
 		unsigned int hystTime; // how long it must maintain the given conditions (1 ms - 65 sec)
 		
 		// state variables
@@ -157,21 +119,22 @@ public:
 		Channel(byte p, byte c);
 		void begin();
 		void update();
+		void reset();
 		bool getCont();
-		
-		static bool condNever();
 	  private:
 		// state variables
 		unsigned long fireStartTime; // these are big clunky int32s that can probably be trimmed
 		unsigned long hystStartTime;
-		
 	};
 // USER FUNCTIONS
 	// Setup & initialization
 	static void begin();	
+	static inline void setReady() {
+		state = READY;
+	}
 
-	static void logData(int e_life); 
-	// Collects data and logs to the SD card. Input- smoothing lifespan, typically a few hundred ms.
+	static void logData(); 
+	// Collects data and logs to the SD card.
 	
 	static void update();
 	
@@ -179,8 +142,10 @@ public:
 	
 	static float altitude;
 	static float altApogee; // highest altitude recorded so far
+	static float altLand;
 	
-	static void getIMU(); // pull data from IMU buffer
+	static void readIMU(); // pull data from IMU buffer
+	static void readAlt(); // returns unsmoothed barometric altitude
 	
 	// get acceleration values, converted from unitless sensor values
 	static float getAccelX() { return accel.x; } 
@@ -204,13 +169,35 @@ public:
 	static VectorF worldVertical; // vector representing initial acceleration, rotated
 	static QuatF rotation; // rotation from IMU
 	static VectorF accel; // acceleration from IMU
-
+	
+	static inline float axialAccel() {
+		return accel.dot(vertical);
+	}
+	
+	static inline void setLiftoffCondition(float minAccel, unsigned int time) {
+		liftoffAccel = minAccel;
+		cLiftoff.hystTime = time;
+	}
+	static inline void setBurnoutCondition(unsigned int time) {
+		cBurnout.hystTime = time;
+	}
+	static inline void setApogeeCondition(unsigned int time) {
+		cApogee.hystTime = time;
+	}
+	static inline void setLandingCondition(float landTolerance, unsigned int time) {
+		landThresh = landTolerance;
+		cLand.hystTime = time;
+	}
+	static inline void setPyroCondition(byte channel, bool (*cond)(), unsigned int hystTime, unsigned int fireTime) {
+		channels[channel].condition = cond;
+		channels[channel].hystTime = hystTime;
+		channels[channel].fireTime = fireTime;
+	}
 	static void setVinDiv(long int res1, long int res2); // set the standard voltage divider for unregulated pins
 	static void setGroundAlt(); // calibrates the ground altitude; preferred against eventually
 	
 	static unsigned long int getMET(); // returns time since liftoff detect
-	static float getAlt(); // returns unsmoothed barometric altitude
-	static float getAltSmoothed(int e_life); // returns the current barometric altitude, with smoothing
+	//static float getAltSmoothed(int e_life); // returns the current barometric altitude, with smoothing
 	static float getVin(); // returns the voltage at the battery input, or about 0.5V less than VCC when powered over USB
 	static float getVoltage(int analog_in); // scales an analog input to a divided voltage using the standard voltage divider
 	static float getTilt(); // returns current off-axis tilt from IMU
@@ -239,26 +226,72 @@ public:
 		float tilt;
 	};
 	
+	// Stock conditions that users will want
+	template <int alt>
+	static bool conditionAltDescent() {
+		return state == DESCENT && altitude < alt;
+	}
+	
+	static bool conditionApogee() {
+		return state == DESCENT;
+	}
+	
+	static bool conditionBurnout() {
+		return state == COAST;
+	}
+	
+	template<int angleDeg>
+	static bool conditionBurnoutTilt() {
+		return state == COAST && getTilt() < angleDeg*DEG_TO_RAD;
+	}
+	
 //  flightXX.aiu 
 #define MAX_FILE_LEN 16
 
 private:
+	static float liftoffAccel;
+	static float landThresh;
+	
 	static void dmpDataReady(); // interrupt for when IMU data is ready
 	static char filename[MAX_FILE_LEN]; // current filename to write to
 	static byte buffer[BUF_SIZE]; // current data buffer to be written
 	static long int SDPos; // current SD card write location
 	static unsigned long lastBaro; // last time a barometer reading was recorded, in MET
-	static unsigned long lastStateReset; // last time the current hysteresis state was reset
+	static HystCondition cLiftoff, cBurnout, cApogee, cLand; // these timers are an improvement but still clunky
 	static byte imuFifoBuffer[IMU_BUFFER_SIZE]; // buffer for incoming IMU data
 	
-	static float smooth1; // smoothing parameters for barometer data
-	static float smooth2; // may get rid of this
-	static float smooth3;
+	//static float smooth1; // smoothing parameters for barometer data
+	//static float smooth2; // may get rid of this
+	//static float smooth3;
 	
 	static float vinScale; // scaling factor for battery readings
 	
 	static unsigned int imuPacketSize; // packet size for IMU buffer
 	static byte imuDevStatus; // status reading from IMU
 	static byte bytesBuffered; // number of bytes currently waiting to be written to card
+	
+	// conditions the user shouldn't need
+	static bool stateConditionLiftoff() {
+		return getAccel() > liftoffAccel;
+	}
+	static bool stateConditionBurnout() {
+		return axialAccel() < 0;
+	}
+	static bool stateConditionApogee() {
+		if(altitude <= altApogee) {
+			return true;
+		} else {
+			altApogee = altitude;
+			return false;
+		}
+	}
+	static bool stateConditionLand() {
+		if(abs(altitude - altLand) < landThresh) {
+			return true;
+		} else {
+			altLand = altitude;
+			return false;
+		}
+	}
 };
 #endif
