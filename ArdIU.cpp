@@ -293,6 +293,7 @@ void ArdIU::update() {
 				cApogee.reset(millis());
 				cLiftoff.reset(millis());
 			}
+			tone(BUZZER, 1500, 10);
 			break;
 		case COAST:
 			if(cLiftoff.update(millis())) {

@@ -89,6 +89,9 @@ THE SOFTWARE.
 
 #define IMU_BUFFER_SIZE 64
 
+// Warning conditions
+#define MIN_ACCEL 20
+
 class ArdIU {
 public:
 	enum FlightState {
@@ -176,6 +179,9 @@ public:
 	
 	static inline void setLiftoffCondition(float minAccel, unsigned int time) {
 		liftoffAccel = minAccel;
+		if(minAccel < MIN_ACCEL) {
+			tone(BUZZER, 1500, 1000);
+		}
 		cLiftoff.hystTime = time;
 	}
 	static inline void setBurnoutCondition(unsigned int time) {
